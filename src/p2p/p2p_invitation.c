@@ -356,6 +356,10 @@ struct wpabuf * p2p_process_invitation_req(struct p2p_data *p2p, const u8 *sa,
 						  msg.operating_channel[4])) {
 				p2p->op_reg_class = msg.operating_channel[3];
 				p2p->op_channel = msg.operating_channel[4];
+#ifdef CONFIG_MTK_P2P_CONN
+				if (!go)
+					dev->oper_freq = req_freq;
+#endif
 				p2p_dbg(p2p, "Use peer preference op_class %d channel %d",
 					p2p->op_reg_class, p2p->op_channel);
 			} else {

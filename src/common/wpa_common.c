@@ -2714,6 +2714,10 @@ const char * wpa_cipher_txt(int cipher)
 		return "CCMP+TKIP";
 	case WPA_CIPHER_GCMP:
 		return "GCMP";
+#if CONFIG_WAPI_SUPPORT
+	case WPA_CIPHER_SMS4:
+		return "SMS4";
+#endif
 	case WPA_CIPHER_GCMP_256:
 		return "GCMP-256";
 	case WPA_CIPHER_CCMP_256:
@@ -2781,6 +2785,12 @@ const char * wpa_key_mgmt_txt(int key_mgmt, int proto)
 		return "FT-SAE";
 	case WPA_KEY_MGMT_FT_SAE_EXT_KEY:
 		return "FT-SAE-EXT-KEY";
+#if CONFIG_WAPI_SUPPORT
+	case WPA_KEY_MGMT_WAPI_PSK:
+		return "WAPI-PSK";
+	case WPA_KEY_MGMT_WAPI_CERT:
+		return "WAPI-CERT";
+#endif
 	case WPA_KEY_MGMT_IEEE8021X_SUITE_B:
 		return "WPA2-EAP-SUITE-B";
 	case WPA_KEY_MGMT_IEEE8021X_SUITE_B_192:

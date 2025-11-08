@@ -418,6 +418,12 @@ cc_defaults {
         "bcmdhd": ["-DCONFIG_DRIVER_NL80211_BRCM"],
         "synadhd": ["-DCONFIG_DRIVER_NL80211_SYNA"],
         default: ["-DCONFIG_DRIVER_NL80211_QCA"],
+    }) + select(soong_config_variable("wpa_supplicant_8", "board_wlan_mediatek_stability"), {
+        "true": [
+            "-DCONFIG_MTK_COMMON",
+            "-DCONFIG_MTK_HOSTAPD_COMMON",
+        ],
+        default: [],
     }),
 }
 

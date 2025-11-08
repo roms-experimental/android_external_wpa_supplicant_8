@@ -1222,6 +1222,13 @@ struct wpa_ssid {
 	 */
 	int ft_eap_pmksa_caching;
 
+#ifdef CONFIG_WAPI_SUPPORT
+	/** WAPI
+	 * certificate alias for wapi cert mode
+	 */
+	u8 *wapi_cert_alias;
+#endif
+
 	/**
 	 * multi_ap_profile - Supported Multi-AP profile
 	 */

@@ -1452,6 +1452,12 @@ ndk::ScopedAStatus StaNetwork::setWapiCertSuiteInternal(const std::string &suite
 #ifdef CONFIG_WAPI_INTERFACE
 	// Dummy implementation
 	dummyWapiCertSuite = suite;
+#ifdef CONFIG_WAPI_SUPPORT
+	struct wpa_ssid *wpa_ssid = retrieveNetworkPtr();
+	if (setStringFieldAndResetState(suite.c_str(), &(wpa_ssid->wapi_cert_alias), "suite")) {
+		return createStatus(SupplicantStatusCode::FAILURE_UNKNOWN);
+	}
+#endif
 	return ndk::ScopedAStatus::ok();
 #else
 	return createStatusWithMsg(SupplicantStatusCode::FAILURE_UNKNOWN, "Not implemented");

@@ -398,7 +398,11 @@ pmksa_cache_add_entry(struct rsn_pmksa_cache *pmksa,
 	wpa_sm_add_pmkid(pmksa->sm, entry->network_ctx, entry->aa, entry->pmkid,
 			 entry->fils_cache_id_set ? entry->fils_cache_id : NULL,
 			 entry->pmk, entry->pmk_len,
+#ifdef CONFIG_MTK_COMMON
+			 entry->expiration,
+#else
 			 pmksa->sm->dot11RSNAConfigPMKLifetime,
+#endif
 			 pmksa->sm->dot11RSNAConfigPMKReauthThreshold,
 			 entry->akmp);
 

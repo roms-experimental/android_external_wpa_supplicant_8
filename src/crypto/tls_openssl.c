@@ -5785,6 +5785,11 @@ int tls_connection_set_params(void *tls_ctx, struct tls_connection *conn,
 #endif /* HAVE_OCSP */
 #endif /* OPENSSL_IS_BORINGSSL */
 
+#ifdef CONFIG_MTK_COMMON
+	SSL_set_enforce_rsa_key_usage(conn->ssl, 0);
+	wpa_printf(MSG_DEBUG, "OpenSSL: Disable enforce_rsa_key_usage");
+#endif /* CONFIG_MTK_COMMON */
+
 	conn->flags = params->flags;
 
 	tls_get_errors(data);

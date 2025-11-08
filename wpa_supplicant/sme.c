@@ -40,6 +40,9 @@ static void sme_auth_timer(void *eloop_ctx, void *timeout_ctx);
 static void sme_assoc_timer(void *eloop_ctx, void *timeout_ctx);
 static void sme_obss_scan_timeout(void *eloop_ctx, void *timeout_ctx);
 static void sme_stop_sa_query(struct wpa_supplicant *wpa_s);
+#ifdef CONFIG_MTK_COMMON
+static int sme_sae_set_pmk(struct wpa_supplicant *wpa_s, const u8 *bssid);
+#endif /* CONFIG_MTK_COMMON */
 
 
 #ifdef CONFIG_SAE
@@ -1503,10 +1506,15 @@ static bool is_sae_key_mgmt_suite(struct wpa_supplicant *wpa_s, u32 suite)
 	 * match that initial implementation so that already deployed use cases
 	 * remain functional. */
 	if (RSN_SELECTOR_GET(&suite) == RSN_AUTH_KEY_MGMT_SAE) {
+#ifdef CONFIG_MTK_COMMON
+		/* SAE AKM only for SAE connection excluding FT-SAE */
+		wpa_s->sme.ext_auth_key_mgmt = WPA_KEY_MGMT_SAE;
+#else /* CONFIG_MTK_COMMON */
 		/* Old drivers which follow initial implementation send SAE AKM
 		 * for both SAE and FT-SAE connections. In that case, determine
 		 * the actual AKM from wpa_s->key_mgmt. */
 		wpa_s->sme.ext_auth_key_mgmt = wpa_s->key_mgmt;
+#endif /* CONFIG_MTK_COMMON */
 		return true;
 	}
 
@@ -1918,6 +1926,14 @@ static int sme_sae_auth(struct wpa_supplicant *wpa_s, u16 auth_transaction,
 		sae_clear_temp_data(&wpa_s->sme.sae);
 		wpa_s_clear_sae_rejected(wpa_s);
 
+#ifdef CONFIG_MTK_COMMON
+		if (sme_sae_set_pmk(wpa_s,
+				    wpa_s->sme.ext_ml_auth ?
+				    wpa_s->sme.ext_auth_ap_mld_addr :
+				    wpa_s->sme.ext_auth_bssid) < 0)
+			return -1;
+#endif /* CONFIG_MTK_COMMON */
+
 		if (external) {
 			/* Report success to driver */
 			sme_send_external_auth_status(wpa_s,
@@ -1999,11 +2015,13 @@ void sme_external_auth_mgmt_rx(struct wpa_supplicant *wpa_s,
 		if (res != 1)
 			return;
 
+#ifndef CONFIG_MTK_COMMON
 		if (sme_sae_set_pmk(wpa_s,
 				    wpa_s->sme.ext_ml_auth ?
 				    wpa_s->sme.ext_auth_ap_mld_addr :
 				    wpa_s->sme.ext_auth_bssid) < 0)
 			return;
+#endif /* CONFIG_MTK_COMMON */
 	}
 }
 

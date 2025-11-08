@@ -420,6 +420,9 @@ int wpa_driver_nl80211_scan(struct i802_bss *bss,
 	if (ret) {
 		wpa_printf(MSG_DEBUG, "nl80211: Scan trigger failed: ret=%d "
 			   "(%s)", ret, strerror(-ret));
+#ifdef CONFIG_MTK_HOSTAPD_COMMON
+		goto fail;
+#else
 		if (drv->hostapd && is_ap_interface(drv->nlmode)) {
 #ifdef CONFIG_IEEE80211BE
 			/* For multi link BSS, retry scan if any other links
@@ -470,6 +473,7 @@ int wpa_driver_nl80211_scan(struct i802_bss *bss,
 			ret = 0;
 		} else
 			goto fail;
+#endif
 	}
 
 	drv->scan_state = SCAN_REQUESTED;

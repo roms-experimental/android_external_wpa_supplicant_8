@@ -70,6 +70,9 @@
 #include "ap/ap_config.h"
 #include "ap/hostapd.h"
 #endif /* CONFIG_MESH */
+#ifdef CONFIG_WAPI_SUPPORT
+#include "wapi.h"
+#endif
 #include "aidl/vendor/aidl.h"
 
 const char *const wpa_supplicant_version =
@@ -698,6 +701,11 @@ static void wpa_supplicant_cleanup(struct wpa_supplicant *wpa_s)
 	pmksa_candidate_free(wpa_s->wpa);
 	ptksa_cache_deinit(wpa_s->ptksa);
 	wpa_s->ptksa = NULL;
+
+#if CONFIG_WAPI_SUPPORT
+	wapi_deinit(wpa_s);
+#endif
+
 	wpa_sm_deinit(wpa_s->wpa);
 	wpa_s->wpa = NULL;
 	wpa_bssid_ignore_clear(wpa_s);
@@ -1785,6 +1793,15 @@ static void wpas_update_allowed_key_mgmt(struct wpa_supplicant *wpa_s,
 		return;
 	}
 
+#ifdef CONFIG_MTK_COMMON
+	if (ssid->group_mgmt_cipher &
+	    (WPA_CIPHER_AES_128_CMAC | WPA_CIPHER_BIP_GMAC_256)) {
+		ssid->group_mgmt_cipher |=
+		(WPA_CIPHER_AES_128_CMAC | WPA_CIPHER_BIP_GMAC_256);
+		wpa_dbg(wpa_s, MSG_DEBUG, "RSN: enable AES_128_CMAC | BIP_GMAC_256");
+	}
+#endif /* CONFIG_MTK_COMMON */
+
 #ifdef CONFIG_SAE
 	sae_pwe = wpas_get_ssid_sae_pwe(wpa_s, ssid);
 	if (sae_pwe != SAE_PWE_HUNT_AND_PECK &&
@@ -2194,9 +2211,11 @@ int wpa_supplicant_set_suites(struct wpa_supplicant *wpa_s,
 #endif /* CONFIG_SAE */
 	if (bss && is_6ghz_freq(bss->freq) &&
 	    wpas_get_ssid_pmf(wpa_s, ssid) != MGMT_FRAME_PROTECTION_REQUIRED) {
+#ifndef CONFIG_MTK_COMMON
 		wpa_dbg(wpa_s, MSG_DEBUG, "RSN: Force MFPR=1 on 6 GHz");
 		wpa_sm_set_param(wpa_s->wpa, WPA_PARAM_MFP,
 				 MGMT_FRAME_PROTECTION_REQUIRED);
+#endif /* CONFIG_MTK_COMMON */
 	}
 #ifdef CONFIG_TESTING_OPTIONS
 	wpa_sm_set_param(wpa_s->wpa, WPA_PARAM_FT_RSNXE_USED,
@@ -3828,6 +3847,15 @@ static u8 * wpas_populate_assoc_ies(
 			params->wps = WPS_MODE_OPEN;
 		wpa_s->wpa_proto = 0;
 #endif /* CONFIG_WPS */
+#ifdef CONFIG_WAPI_SUPPORT
+	} else if (ssid->key_mgmt & (WPA_KEY_MGMT_WAPI_CERT | WPA_KEY_MGMT_WAPI_PSK)) {
+		if (wapi_set_suites(wpa_s, ssid, bss, wpa_ie, &wpa_ie_len) < 0) {
+			wpa_msg(wpa_s, MSG_WARNING, "WPA: Failed to set WAPI "
+				"key management and encryption suites");
+			wpas_connect_work_done(wpa_s);
+			return NULL;
+		}
+#endif
 	} else {
 		wpa_supplicant_set_non_wpa_policy(wpa_s, ssid);
 		wpa_ie_len = 0;
@@ -4490,6 +4518,9 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
        struct ieee80211_vht_capabilities vhtcaps;
        struct ieee80211_vht_capabilities vhtcaps_mask;
 #endif /* CONFIG_VHT_OVERRIDES */
+#ifdef CONFIG_MTK_COMMON
+	const u8 *mdie;
+#endif /* CONFIG_MTK_COMMON */
 
 	wpa_s->roam_in_progress = false;
 #ifdef CONFIG_WNM
@@ -4598,7 +4629,13 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 
 	wpa_supplicant_cancel_scan(wpa_s);
 
-	wpa_clear_keys(wpa_s, bss ? bss->bssid : NULL);
+#ifdef CONFIG_MTK_COMMON
+	if (wpa_s->wpa_state == WPA_COMPLETED)
+		wpa_printf(MSG_INFO, "Don't clear key while in a connected state");
+	else
+#endif /* CONFIG_MTK_COMMON */
+		wpa_clear_keys(wpa_s, bss ? bss->bssid : NULL);
+
 	use_crypt = 1;
 	cipher_pairwise = wpa_s->pairwise_cipher;
 	cipher_group = wpa_s->group_cipher;
@@ -4862,6 +4899,12 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 				"MFP: require MFP");
 			params.mgmt_frame_protection =
 				MGMT_FRAME_PROTECTION_REQUIRED;
+#ifndef CONFIG_MTK_COMMON
+			wpa_dbg(wpa_s, MSG_DEBUG, "WPA: Selected AP supports "
+				"MFP: require MFP");
+			params.mgmt_frame_protection =
+				MGMT_FRAME_PROTECTION_REQUIRED;
+#endif /* CONFIG_MTK_COMMON */
 #ifdef CONFIG_OWE
 		} else if (!rsn && (ssid->key_mgmt & WPA_KEY_MGMT_OWE) &&
 			   !ssid->owe_only) {
@@ -4981,6 +5024,16 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 			/* give IBSS a bit more time */
 			timeout = ssid->mode == WPAS_MODE_IBSS ? 20 : 10;
 		}
+#ifdef CONFIG_WAPI_SUPPORT
+		if (wpa_s->wpa_proto == WPA_PROTO_WAPI) {
+			wpa_s->current_ssid = ssid;
+			wpa_printf(MSG_DEBUG,
+				"[WAPI] set WAPI Auth Time in 35 secs"
+				" and not to initiate eapol\n");
+			wpa_supplicant_req_auth_timeout(wpa_s, 35, 0);
+			return;
+		}
+#endif
 		wpa_supplicant_req_auth_timeout(wpa_s, timeout, 0);
 	}
 

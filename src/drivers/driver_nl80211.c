@@ -3389,6 +3389,10 @@ static u32 wpa_cipher_to_cipher_suite(unsigned int cipher)
 		return RSN_CIPHER_SUITE_WEP40;
 	case WPA_CIPHER_GTK_NOT_USED:
 		return RSN_CIPHER_SUITE_NO_GROUP_ADDRESSED;
+#ifdef CONFIG_WAPI_SUPPORT
+	case WPA_CIPHER_SMS4:
+		return RSN_CIPHER_SUITE_TKIP;
+#endif
 	default:
 		return 0;
 	}

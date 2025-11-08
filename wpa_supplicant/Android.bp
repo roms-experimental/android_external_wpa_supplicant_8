@@ -741,6 +741,12 @@ cc_defaults {
     }) + select(soong_config_variable("wpa_supplicant_8", "board_wlan_bcmdhd_sae"), {
         true: ["-DCONFIG_BRCM_SAE"],
         default: [],
+    }) + select(soong_config_variable("wpa_supplicant_8", "board_wlan_mediatek_stability"), {
+        "true": [
+            "-DCONFIG_MTK_COMMON",
+            "-DCONFIG_MTK_P2P_CONN",
+        ],
+        default: [],
     }),
 }
 

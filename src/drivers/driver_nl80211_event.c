@@ -24,6 +24,9 @@
 #include "rsn_supp/wpa_i.h"
 #include "wpa_supplicant_i.h"
 #endif
+#ifdef CONFIG_MTK_COMMON
+#include "common/mtk_vendor.h"
+#endif
 
 static void
 nl80211_control_port_frame_tx_status(struct i802_bss *bss,
@@ -3468,6 +3471,81 @@ static void nl80211_vendor_event_brcm(struct wpa_driver_nl80211_data *drv,
 
 #endif /* CONFIG_DRIVER_NL80211_BRCM || CONFIG_DRIVER_NL80211_SYNA */
 
+#ifdef CONFIG_MTK_COMMON
+static void mtk_nl80211_generic_response_event(struct wpa_driver_nl80211_data *drv,
+                u8 *data, size_t data_len)
+{
+    const u8 *end, *pos;
+
+    pos = data;
+    end = data + data_len;
+    while (end - pos >= 2) {
+        u8 id, len;
+
+        id = *pos++;
+        len = *pos++;
+        if (len > end - pos)
+            break;
+
+        switch (id) {
+        /* add cases for different event id here */
+        case MTK_GRID_EXTERNAL_AUTH:
+        {
+             struct mtk_externa_auth_info *info =
+                 (struct mtk_externa_auth_info *) pos;
+             union wpa_event_data event;
+             enum nl80211_external_auth_action act;
+
+             os_memset(&event, 0, sizeof(event));
+             act = info->action;
+             switch (act) {
+             case NL80211_EXTERNAL_AUTH_START:
+                     event.external_auth.action = EXT_AUTH_START;
+                     break;
+             case NL80211_EXTERNAL_AUTH_ABORT:
+                     event.external_auth.action = EXT_AUTH_ABORT;
+                     break;
+             default:
+                     return;
+             }
+
+             event.external_auth.key_mgmt_suite = info->key_mgmt_suite;
+             event.external_auth.ssid_len = info->ssid_len;
+             if (event.external_auth.ssid_len > SSID_MAX_LEN)
+                 return;
+             event.external_auth.ssid = info->ssid;
+             event.external_auth.bssid = info->bssid;
+
+             wpa_printf(MSG_DEBUG,
+                  "nl80211: MLO external auth action: %u, AKM: 0x%x",
+                  event.external_auth.action,
+                  event.external_auth.key_mgmt_suite);
+             wpa_supplicant_event(drv->ctx, EVENT_EXTERNAL_AUTH, &event);
+        }
+             break;
+        default:
+            wpa_printf(MSG_DEBUG, "unknown generic response: %d", id);
+            break;
+        }
+        pos += len;
+    }
+}
+
+static void nl80211_vendor_event_mtk(struct wpa_driver_nl80211_data *drv,
+				      u32 subcmd, u8 *data, size_t len)
+{
+	switch (subcmd) {
+    case WIFI_EVENT_GENERIC_RESPONSE:
+        mtk_nl80211_generic_response_event(drv, data, len);
+        break;
+    default:
+        wpa_printf(MSG_DEBUG,
+            "nl80211: Ignore unsupported mtk vendor event %u", subcmd);
+        break;
+	}
+}
+
+#endif /* CONFIG_MTK_COMMON */
 
 static void nl80211_vendor_event(struct i802_bss *bss, struct nlattr **tb)
 {
@@ -3524,6 +3602,11 @@ static void nl80211_vendor_event(struct i802_bss *bss, struct nlattr **tb)
 		nl80211_vendor_event_brcm(drv, subcmd, data, len);
 		break;
 #endif /* CONFIG_DRIVER_NL80211_BRCM || CONFIG_DRIVER_NL80211_SYNA || CONFIG_BRCM_SAE */
+#ifdef CONFIG_MTK_COMMON
+	case OUI_MTK:
+	    nl80211_vendor_event_mtk(drv, subcmd, data, len);
+	    break;
+#endif /* CONFIG_MTK_COMMON */
 	default:
 		wpa_printf(MSG_DEBUG, "nl80211: Ignore unsupported vendor event");
 		break;

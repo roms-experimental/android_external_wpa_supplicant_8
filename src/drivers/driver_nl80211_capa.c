@@ -17,6 +17,7 @@
 #include "common/qca-vendor.h"
 #include "common/qca-vendor-attr.h"
 #include "common/brcm_vendor.h"
+#include "common/mtk_vendor.h"
 #include "driver_nl80211.h"
 
 static int protocol_feature_handler(struct nl_msg *msg, void *arg)
@@ -251,6 +252,9 @@ static void wiphy_info_supp_cmds(struct wiphy_info_data *info,
 			break;
 		}
 	}
+#ifdef CONFIG_MTK_COMMON
+	info->update_ft_ies_supported = 1;
+#endif /* CONFIG_MTK_COMMON */
 }
 
 
@@ -1511,6 +1515,10 @@ int wpa_driver_nl80211_capa(struct wpa_driver_nl80211_data *drv)
 			WPA_DRIVER_CAPA_KEY_MGMT_SUITE_B |
 			WPA_DRIVER_CAPA_KEY_MGMT_OWE |
 			WPA_DRIVER_CAPA_KEY_MGMT_DPP;
+#ifdef CONFIG_MTK_COMMON
+		drv->capa.key_mgmt |=
+			WPA_DRIVER_CAPA_KEY_MGMT_SAE_EXT_KEY;
+#endif /* CONFIG_MTK_COMMON */
 
 		if (drv->capa.enc & (WPA_DRIVER_CAPA_ENC_CCMP_256 |
 				     WPA_DRIVER_CAPA_ENC_GCMP_256))

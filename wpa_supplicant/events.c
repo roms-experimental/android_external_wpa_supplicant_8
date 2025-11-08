@@ -53,6 +53,9 @@
 #include "wmm_ac.h"
 #include "nan_usd.h"
 #include "dpp_supplicant.h"
+#ifdef CONFIG_WAPI_SUPPORT
+#include "wapi.h"
+#endif
 #include "rsn_supp/wpa_i.h"
 
 
@@ -643,6 +646,11 @@ static int wpa_supplicant_match_privacy(struct wpa_bss *bss,
 
 	if (wpa_key_mgmt_wpa(ssid->key_mgmt))
 		privacy = 1;
+
+#ifdef CONFIG_WAPI_SUPPORT
+	if (ssid->key_mgmt & (WPA_KEY_MGMT_WAPI_PSK | WPA_KEY_MGMT_WAPI_CERT))
+		privacy = 1;
+#endif
 
 	if (bss->caps & IEEE80211_CAP_PRIVACY)
 		return privacy;
@@ -1383,6 +1391,10 @@ static bool wpa_scan_res_ok(struct wpa_supplicant *wpa_s, struct wpa_ssid *ssid,
 		if (debug_print)
 			wpa_dbg(wpa_s, MSG_DEBUG,
 				"   skip - non-WPA network not allowed");
+#ifdef CONFIG_WAPI_SUPPORT
+        ie = wpa_bss_get_ie(bss, WLAN_EID_WAPI);
+        if (ssid->proto != WPA_PROTO_WAPI || !(ie && ie[1]))
+#endif
 		return false;
 	}
 
@@ -4566,6 +4578,17 @@ static void wpa_supplicant_event_assoc(struct wpa_supplicant *wpa_s,
 #endif /* CONFIG_SME */
 
 	wpa_msg(wpa_s, MSG_INFO, "Associated with " MACSTR, MAC2STR(bssid));
+#ifdef CONFIG_WAPI_SUPPORT
+	/**
+	 * migration notice: please pay attention to if there's any changes under these code
+	 * in new wpa_supplicant.
+	 */
+	if (wpa_s->wpa_proto == WPA_PROTO_WAPI) {
+		wapi_event_assoc(wpa_s);
+		return;
+	}
+#endif
+
 	if (wpa_s->current_ssid) {
 		/* When using scanning (ap_scan=1), SIM PC/SC interface can be
 		 * initialized before association, but for other modes,
@@ -4937,6 +4960,12 @@ static void wpa_supplicant_event_disassoc_finish(struct wpa_supplicant *wpa_s,
 		bssid = wpa_s->pending_bssid;
 	if (wpa_s->wpa_state >= WPA_AUTHENTICATING)
 		wpas_connection_failed(wpa_s, bssid, NULL);
+
+#ifdef CONFIG_WAPI_SUPPORT
+	if (wpa_s->wpa_proto == WPA_PROTO_WAPI) {
+		wapi_event_disassoc(wpa_s, bssid);
+	} else
+#endif
 	wpa_sm_notify_disassoc(wpa_s->wpa);
 	ptksa_cache_flush(wpa_s->ptksa, wpa_s->bssid, WPA_CIPHER_NONE);
 
@@ -4948,6 +4977,9 @@ static void wpa_supplicant_event_disassoc_finish(struct wpa_supplicant *wpa_s,
 #ifdef CONFIG_DPP2
 	wpas_dpp_send_conn_status_result(wpa_s, DPP_STATUS_AUTH_FAILURE);
 #endif /* CONFIG_DPP2 */
+#ifdef CONFIG_WAPI_SUPPORT /* clear keys only if we're not using wapi */
+	if (wpa_s->wpa_proto != WPA_PROTO_WAPI)
+#endif
 	if (wpa_supplicant_dynamic_keys(wpa_s)) {
 		wpa_dbg(wpa_s, MSG_DEBUG, "Disconnect event - remove keys");
 		wpa_clear_keys(wpa_s, wpa_s->bssid);

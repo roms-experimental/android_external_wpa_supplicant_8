@@ -24,6 +24,10 @@ else
   include $(LOCAL_PATH)/android.config
 endif
 
+ifeq ($(BOARD_WLAN_DEVICE), MediaTek)
+  CONFIG_WAPI_INTERFACE=y
+endif
+
 # To ignore possible wrong network configurations
 L_CFLAGS = -DWPA_IGNORE_CONFIG_ERRORS
 
